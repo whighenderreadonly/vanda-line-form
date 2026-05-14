@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登録フォーム</title>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      padding: 24px;
+      background: #f6f7f8;
+      color: #222;
+    }
+
+    .card {
+      background: #fff;
+      padding: 24px;
+      border-radius: 16px;
+      max-width: 480px;
+      margin: 0 auto;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0 0 16px;
+      text-align: center;
+    }
+
+    label {
+      display: block;
+      margin-top: 16px;
+      font-weight: 700;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 6px;
+      box-sizing: border-box;
+      border: 1px solid #d0d5dd;
+      border-radius: 8px;
+      font-size: 16px;
+      background: #fff;
+    }
+
+    .checkbox {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+      align-items: flex-start;
+    }
+
+    .checkbox input {
+      width: auto;
+      margin-top: 5px;
+    }
+
+    .checkbox-text {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .note {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      background: #06c755;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #b6e7c8;
+      cursor: not-allowed;
+    }
+
+    #message {
+      margin-top: 16px;
+      font-weight: 700;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .error {
+      color: #c0392b;
+    }
+
+    .success {
+      color: #0a7f3f;
+    }
+
+    .info {
+      color: #555;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>登録フォーム</h1>
+
+    <p class="note">
+      ご入力いただいた情報は、お問い合わせ対応、本人確認、ご案内のために利用します。
+    </p>
+
+    <label for="name">お名前</label>
+    <input type="text" id="name" placeholder="山田 太郎" autocomplete="name">
+
+    <label for="phone">電話番号</label>
+    <input type="tel" id="phone" placeholder="090-1234-5678" autocomplete="tel">
+
+    <label for="email">メールアドレス</label>
+    <input type="email" id="email" placeholder="example@example.com" autocomplete="email">
+
+    <div class="checkbox">
+      <input type="checkbox" id="consent">
+      <div class="checkbox-text">
+        個人情報の取り扱いに同意します。
+        <div class="note">
+          入力情報は、お問い合わせ対応、本人確認、ご案内の目的で利用します。
+        </div>
+      </div>
+    </div>
+
+    <button id="submitButton" onclick="submitForm()" disabled>LINE情報を確認中...</button>
+
+    <div id="message" class="info">LINE情報を確認中です...</div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010082012-Hme0f0eW';
+
+    // ここだけ差し替え
+    const GAS_ENDPOINT_URL = 'https://script.google.com/macros/s/AKfycbwqHqsGVkX--1PMFSPJbMTcURTPnUILoZbp517faITZwDqYVOnc9mNO6TorH4UHk7gO/exec';
+
+    let lineUserId = '';
+    let lineDisplayName = '';
+
+    window.addEventListener('load', initializeLiff);
+
+    async function initializeLiff() {
+      const button = document.getElementById('submitButton');
+
+      try {
+        showMessage('LINE情報を確認中です...', 'info');
+
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const context = liff.getContext ? liff.getContext() : null;
+
+        if (context && context.userId) {
+          lineUserId = context.userId;
+        }
+
+        try {
+          const profile = await liff.getProfile();
+
+          if (!lineUserId && profile.userId) {
+            lineUserId = profile.userId;
+          }
+
+          lineDisplayName = profile.displayName || '';
+
+        } catch (profileError) {
+          showMessage(
+            'LINEプロフィール取得に失敗しました。\n\n' +
+            'LIFFのScopeで profile がONになっているか確認してください。',
+            'error'
+          );
+          button.disabled = true;
+          button.innerText = 'LINE情報未取得';
+          return;
+        }
+
+        if (lineUserId) {
+          showMessage('LINE情報を取得しました。入力後、登録してください。', 'success');
+          button.disabled = false;
+          button.innerText = '登録する';
+        } else {
+          showMessage(
+            'LINEユーザー情報を取得できませんでした。\n\n' +
+            '公式LINEのトーク画面からLIFF URLを開き直してください。',
+            'error'
+          );
+          button.disabled = true;
+          button.innerText = 'LINE情報未取得';
+        }
+
+      } catch (error) {
+        showMessage(
+          'LIFF初期化に失敗しました。\n\n' +
+          '原因：' + (error.message || error),
+          'error'
+        );
+
+        button.disabled = true;
+        button.innerText = 'LIFF初期化失敗';
+      }
+    }
+
+    async function submitForm() {
+      const button = document.getElementById('submitButton');
+
+      const name = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const consent = document.getElementById('consent').checked;
+
+      if (!lineUserId) {
+        showMessage('LINEユーザー情報を取得できていないため、登録できません。', 'error');
+        return;
+      }
+
+      if (!name) {
+        showMessage('お名前を入力してください。', 'error');
+        return;
+      }
+
+      if (!phone) {
+        showMessage('電話番号を入力してください。', 'error');
+        return;
+      }
+
+      if (!email) {
+        showMessage('メールアドレスを入力してください。', 'error');
+        return;
+      }
+
+      if (!consent) {
+        showMessage('個人情報の取り扱いに同意してください。', 'error');
+        return;
+      }
+
+      if (!GAS_ENDPOINT_URL || GAS_ENDPOINT_URL === 'ここにGASの/exec URLを入れる') {
+        showMessage('GAS送信先URLが未設定です。管理者に確認してください。', 'error');
+        return;
+      }
+
+      const payload = {
+        userId: lineUserId,
+        displayName: lineDisplayName,
+        name: name,
+        phone: phone,
+        email: email,
+        consent: consent
+      };
+
+      try {
+        button.disabled = true;
+        button.innerText = '送信中...';
+
+        /*
+          GitHub Pages → GAS は別ドメイン通信になるため、
+          no-corsで送信します。
+          この方式ではGASからの返答は読めませんが、
+          スプレッドシートへの記帳は実行されます。
+        */
+        await fetch(GAS_ENDPOINT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        showMessage('登録を受け付けました。ありがとうございます。', 'success');
+
+        setTimeout(function() {
+          if (liff.isInClient()) {
+            liff.closeWindow();
+          }
+        }, 1500);
+
+      } catch (error) {
+        showMessage(
+          '送信に失敗しました。通信環境を確認して、もう一度お試しください。',
+          'error'
+        );
+
+        button.disabled = false;
+        button.innerText = '登録する';
+      }
+    }
+
+    function showMessage(message, type) {
+      const messageEl = document.getElementById('message');
+      messageEl.innerText = message;
+
+      if (type === 'error') {
+        messageEl.className = 'error';
+      } else if (type === 'success') {
+        messageEl.className = 'success';
+      } else {
+        messageEl.className = 'info';
+      }
+    }
+  </script>
+</body>
+</html>
